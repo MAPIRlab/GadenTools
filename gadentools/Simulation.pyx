@@ -58,9 +58,14 @@ cdef class Simulation:
     cpdef float getCurrentConcentration(self, Vector3 location):
         '''Returns concentration (in ppm) at location in the most recently loaded iteration.'''
         cdef int[:] env = self.Environment #memoryview
-        return self.getConcentration(self.currentIteration, location, env)
+        return self.__getConcentration(self.currentIteration, location, env)
 
-    cpdef float getConcentration(self, int iteration, Vector3 location, int[:] env):
+    cpdef float getConcentration(self, int iteration, Vector3 location):
+        '''Returns concentration (in ppm) at location in the most recently loaded iteration.'''
+        cdef int[:] env = self.Environment #memoryview
+        return self.__getConcentration(iteration, location, env)
+
+    cdef float __getConcentration(self, int iteration, Vector3 location, int[:] env):
         '''Returns concentration (in ppm) at location in the specified iteration. If the iteration is not loaded, it gets loaded'''
         self.__readFile(iteration) #if it's the current iteration it doesn't do anything
         cdef float total = 0.0
@@ -84,7 +89,7 @@ cdef class Simulation:
             for j in range(concentration_map.shape[1]) : 
                     if self.Environment[indexFrom3D(i,j,k, self.number_of_cells_x,self.number_of_cells_y)]:
                         location = Vector3(i + 0.5, j + 0.5, k + 0.5) * self.cell_size + self.env_min 
-                        concentration_map[i,j] = self.getConcentration(iteration, location, env)
+                        concentration_map[i,j] = self.__getConcentration(iteration, location, env)
         return concentration_map
 
     cpdef numpy.ndarray generateConcentrationMap3D(self, int iteration):
