@@ -10,8 +10,6 @@ from Utils cimport Vector3
 import time
 cimport cython
 
-cdef inline int indexFrom3D(float x, float y, float z, int number_of_cells_x, int number_of_cells_y) :
-        return (<int>z) * number_of_cells_x * number_of_cells_y + (<int>y) * number_of_cells_x + (<int>x)
 
 cdef class Filament:
     cdef public Vector3 position
@@ -31,8 +29,8 @@ cdef class Simulation:
     cdef numpy.ndarray V
     cdef numpy.ndarray W
     cdef numpy.ndarray Environment
-    cdef Vector3 env_min
-    cdef Vector3 env_max
+    cdef public Vector3 env_min
+    cdef public Vector3 env_max
     cdef int number_of_cells_x
     cdef int number_of_cells_y
     cdef int number_of_cells_z
@@ -56,17 +54,75 @@ cdef class Simulation:
         self.__loadOccupancyFile()
 
     cpdef float getCurrentConcentration(self, Vector3 location):
-        '''Returns concentration (in ppm) at location in the most recently loaded iteration.'''
+        """Returns concentration (in ppm) at location in the most recently loaded iteration.
+        Args:
+            Vector3 location
+        """
         cdef int[:] env = self.Environment #memoryview
         return self.__getConcentration(self.currentIteration, location, env)
 
     cpdef float getConcentration(self, int iteration, Vector3 location):
-        '''Returns concentration (in ppm) at location in the most recently loaded iteration.'''
+        """Returns concentration (in ppm) at location in the specified iteration. If the iteration is not loaded, it gets loaded.
+        Args:
+            int iteration
+            Vector3 location
+        """
         cdef int[:] env = self.Environment #memoryview
         return self.__getConcentration(iteration, location, env)
 
+    cpdef numpy.ndarray generateConcentrationMap2D(self, int iteration, float height):
+        """Returns 2D concentration map (in ppm) as a numpy.array of floats.
+        Args:
+            int iteration
+            float height
+        """
+        cdef numpy.ndarray[numpy.float_t, ndim=2] concentration_map = numpy.zeros((self.number_of_cells_x, self.number_of_cells_y), float)
+        cdef int k = int( (height-self.env_min.z) / self.cell_size )
+
+        cdef int[:] env = self.Environment #memoryview
+        cdef Vector3 location
+        for i in range(concentration_map.shape[0]) :
+            for j in range(concentration_map.shape[1]) : 
+                    if self.Environment[self.__indexFrom3D(i,j,k)]:
+                        location = Vector3(i + 0.5, j + 0.5, k + 0.5) * self.cell_size + self.env_min 
+                        concentration_map[i,j] = self.__getConcentration(iteration, location, env)
+        return concentration_map
+
+    cpdef numpy.ndarray generateConcentrationMap3D(self, int iteration):
+        """Returns 3D concentration map (in ppm) as a numpy.array of floats. Kind of slow."""
+        cdef numpy.ndarray[numpy.float_t, ndim=3] concentration_map = numpy.zeros((self.number_of_cells_x, self.number_of_cells_y, self.number_of_cells_z), float)
+        for k in range(concentration_map.shape[2]) :
+            concentration_map[:,:,k] = self.generateConcentrationMap2D(iteration, k*self.cell_size + self.env_min.z)
+        return concentration_map
+
+
+
+    
+    cpdef Vector3 getWind(self, int iteration, Vector3 location):
+        """Returns wind vector (m/s) at location in the specified iteration. If the iteration is not loaded, it gets loaded.
+        Args:
+            int iteration
+            Vector3 location
+        """
+        cdef Vector3 indices = (location-self.env_min) / self.cell_size
+        cdef index = self.__indexFrom3D(indices.x, indices.y, indices.z)
+        return Vector3(self.U[index], self.V[index], self.W[index])
+    
+    cpdef numpy.ndarray generateWindMap2D(self, int iteration, float height):
+        cdef numpy.ndarray[object, ndim=2] wind_map = numpy.zeros((self.number_of_cells_x, self.number_of_cells_y), object)
+        cdef int k = int( (height-self.env_min.z) / self.cell_size )
+
+        cdef Vector3 location
+        cdef int index
+        for i in range(wind_map.shape[0]) :
+            for j in range(wind_map.shape[1]) : 
+                    index = self.__indexFrom3D(i,j,k)
+                    if self.Environment[index]:
+                        wind_map[i,j] = Vector3(self.U[index], self.V[index], self.W[index])
+
+
+
     cdef float __getConcentration(self, int iteration, Vector3 location, int[:] env):
-        '''Returns concentration (in ppm) at location in the specified iteration. If the iteration is not loaded, it gets loaded'''
         self.__readFile(iteration) #if it's the current iteration it doesn't do anything
         cdef float total = 0.0
         cdef Filament fil
@@ -77,29 +133,6 @@ cdef class Simulation:
             if self.__checkPath(location, fil.position, env) :
                 total += self.__getConcentrationFromFilament(location, fil)
         return total
-
-    cpdef numpy.ndarray generateConcentrationMap2D(self, int iteration, float height):
-        '''Returns 2D concentration map (in ppm) as a numpy.array of floats. Kind of slow.'''
-        cdef numpy.ndarray[numpy.float_t, ndim=2] concentration_map = numpy.zeros((self.number_of_cells_x, self.number_of_cells_y), float)
-        cdef int k = int( (height-self.env_min.z) / self.cell_size )
-
-        cdef int[:] env = self.Environment #memoryview
-        cdef Vector3 location
-        for i in range(concentration_map.shape[0]) :
-            for j in range(concentration_map.shape[1]) : 
-                    if self.Environment[indexFrom3D(i,j,k, self.number_of_cells_x,self.number_of_cells_y)]:
-                        location = Vector3(i + 0.5, j + 0.5, k + 0.5) * self.cell_size + self.env_min 
-                        concentration_map[i,j] = self.__getConcentration(iteration, location, env)
-        return concentration_map
-
-    cpdef numpy.ndarray generateConcentrationMap3D(self, int iteration):
-        '''Returns 3D concentration map (in ppm) as a numpy.array of floats. Quite slow.'''
-        cdef numpy.ndarray[numpy.float_t, ndim=3] concentration_map = numpy.zeros((self.number_of_cells_x, self.number_of_cells_y, self.number_of_cells_z), float)
-        for k in range(concentration_map.shape[2]) :
-            concentration_map[:,:,k] = self.generateConcentrationMap2D(iteration, k*self.cell_size + self.env_min.z)
-        return concentration_map
-
-
 
     cdef float __getConcentrationFromFilament(self, Vector3 location, Filament filament) :
         cdef float distance_cm = 100 * (<Vector3>(location-filament.position)).magnitude();
@@ -112,7 +145,7 @@ cdef class Simulation:
         return ppm;
 
     cdef __readFile(self, int iteration):
-        '''Safe to call without checking if iteration is the current one.'''
+        """Safe to call without checking if iteration is the current one."""
         if iteration == self.currentIteration :
             return
 
@@ -199,7 +232,7 @@ cdef class Simulation:
                 continue
 
             for ch in line:
-                self.Environment[indexFrom3D(idx_x, idx_y, idx_z, self.number_of_cells_x,self.number_of_cells_y)] =int( not(bool(int(ch))) )
+                self.Environment[self.__indexFrom3D(idx_x, idx_y, idx_z)] =int( not(bool(int(ch))) )
                 idx_y+=1
 
             idx_x += 1
@@ -219,10 +252,12 @@ cdef class Simulation:
         for i in range(steps):
             current = current + delta
             currentIndex = (current-self.env_min) / self.cell_size
-            if not(env[indexFrom3D(currentIndex.x, currentIndex.y, currentIndex.z, self.number_of_cells_x,self.number_of_cells_y)]) :
+            if not(env[self.__indexFrom3D(currentIndex.x, currentIndex.y, currentIndex.z)]) :
                 return False
 
         return True
     
+    cpdef int __indexFrom3D(self, float x, float y, float z) :
+            return (<int>z) * self.number_of_cells_x * self.number_of_cells_y + (<int>y) * self.number_of_cells_x + (<int>x)
 
 

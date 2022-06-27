@@ -36,3 +36,6 @@ cdef class Vector3:
     def __floordiv__(Vector3 self, float scalar) :
         return Vector3.__new__(Vector3, self.x // scalar, self.y // scalar, self.z // scalar)
     
+    def __repr__(self):
+        return "("+str(self.x)+", "+str(self.y)+", "+str(self.z)+")"
+    
