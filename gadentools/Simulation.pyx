@@ -70,8 +70,9 @@ cdef class Simulation:
         cdef int[:] env = self.Environment #memoryview
         return self.__getConcentration(iteration, location, env)
 
-    cpdef numpy.ndarray generateConcentrationMap2D(self, int iteration, float height):
-        """Returns 2D concentration map (in ppm) as a numpy.array of floats.
+    cpdef numpy.ndarray generateConcentrationMap2D(self, int iteration, float height, bint blockObstacles):
+        """Returns 2D concentration map (in ppm) as a numpy.array of floats. 
+        If blockObstacles==True, blocked cells will have a special value (-1).
         Args:
             int iteration
             float height
@@ -90,15 +91,6 @@ cdef class Simulation:
                         concentration_map[i,j] = -1
         return concentration_map
 
-    cpdef numpy.ndarray generateConcentrationMap3D(self, int iteration):
-        """Returns 3D concentration map (in ppm) as a numpy.array of floats. Kind of slow."""
-        cdef numpy.ndarray[numpy.float_t, ndim=3] concentration_map = numpy.zeros((self.number_of_cells_x, self.number_of_cells_y, self.number_of_cells_z), float)
-        for k in range(concentration_map.shape[2]) :
-            concentration_map[:,:,k] = self.generateConcentrationMap2D(iteration, k*self.cell_size + self.env_min.z)
-        return concentration_map
-
-
-
     
     cpdef Vector3 getWind(self, int iteration, Vector3 location):
         """Returns wind vector (m/s) at location in the specified iteration. If the iteration is not loaded, it gets loaded.
@@ -110,7 +102,15 @@ cdef class Simulation:
         cdef index = self.__indexFrom3D(indices.x, indices.y, indices.z)
         return Vector3(self.U[index], self.V[index], self.W[index])
     
-    cpdef numpy.ndarray generateWindMap2D(self, int iteration, float height):
+    cpdef numpy.ndarray generateWindMap2D(self, int iteration, float height, bint blockObstacles):
+        """
+        Returns 2D map of wind vectors (m/s) in the specified iteration. If the iteration is not loaded, it gets loaded.
+        If blockObstacles==True, the value of the array at cells that are blocked is not a Vector3, but a number (-1).
+        Args:
+            int iteration
+            Vector3 location
+            bool blockObstacles
+        """
         cdef numpy.ndarray[object, ndim=2] wind_map = numpy.zeros((self.number_of_cells_x, self.number_of_cells_y), object)
         cdef int k = int( (height-self.env_min.z) / self.cell_size )
 
@@ -121,6 +121,11 @@ cdef class Simulation:
                 index = self.__indexFrom3D(i,j,k)
                 if self.Environment[index]:
                     wind_map[i,j] = Vector3(self.U[index], self.V[index], self.W[index])
+                else:
+                    if blockObstacles:
+                        wind_map[i,j] = -1
+                    else:
+                        wind_map[i,j] = Vector3(0,0,0)
         return wind_map
 
 
