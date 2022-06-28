@@ -28,7 +28,7 @@ cdef class Simulation:
     cdef numpy.ndarray U
     cdef numpy.ndarray V
     cdef numpy.ndarray W
-    cdef numpy.ndarray Environment
+    cdef public numpy.ndarray Environment
     cdef public Vector3 env_min
     cdef public Vector3 env_max
     cdef int number_of_cells_x
@@ -86,6 +86,8 @@ cdef class Simulation:
                     if self.Environment[self.__indexFrom3D(i,j,k)]:
                         location = Vector3(i + 0.5, j + 0.5, k + 0.5) * self.cell_size + self.env_min 
                         concentration_map[i,j] = self.__getConcentration(iteration, location, env)
+                    else:
+                        concentration_map[i,j] = -1
         return concentration_map
 
     cpdef numpy.ndarray generateConcentrationMap3D(self, int iteration):
@@ -116,9 +118,10 @@ cdef class Simulation:
         cdef int index
         for i in range(wind_map.shape[0]) :
             for j in range(wind_map.shape[1]) : 
-                    index = self.__indexFrom3D(i,j,k)
-                    if self.Environment[index]:
-                        wind_map[i,j] = Vector3(self.U[index], self.V[index], self.W[index])
+                index = self.__indexFrom3D(i,j,k)
+                if self.Environment[index]:
+                    wind_map[i,j] = Vector3(self.U[index], self.V[index], self.W[index])
+        return wind_map
 
 
 

@@ -1,0 +1,6 @@
+venv
+gadentools/__pycache__
+build
+test.py
+*.c
+*.so
