@@ -40,6 +40,7 @@ cdef class Simulation:
     cdef float total_moles_in_filament
     cdef float num_moles_all_gases_in_cm3
     cdef object _lock
+    cdef bint playing 
 
     def __init__(self, simulationFolder : str, occupancyFile : str):
         """
@@ -54,6 +55,7 @@ cdef class Simulation:
         self.__readFile(0)
         self.__loadOccupancyFile()
         self._lock = threading.Lock()
+        self.playing = False
 
     def getCurrentIteration(self) ->int:
         '''it's just a getter'''
@@ -64,12 +66,16 @@ cdef class Simulation:
         Continuously loads new iterations at the specified rate.
         While using this you should only access the values through getCurrentConcentration and getCurrentWind.
         """
+        self.playing = True
         x = threading.Thread(target=self.__play, args=(initialIteration, timePerIteration))
         x.start()
     
+    def stopPlaying(self):
+        self.playing = False
+    
     def __play(self, initialIteration:int, timePerIteration:float):
         iteration = initialIteration
-        while os.path.isfile(self.simulationFolder+"/iteration_"+str(iteration)) :
+        while os.path.isfile(self.simulationFolder+"/iteration_"+str(iteration)) and self.playing :
             self.__readFile(iteration)
             iteration += 1
             time.sleep(timePerIteration)
