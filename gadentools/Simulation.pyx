@@ -86,7 +86,8 @@ cdef class Simulation:
             Vector3 location
         """
         cdef int[:] env = self.Environment #memoryview
-        return self.__getConcentration(self.currentIteration, location, env)
+        with self._lock:
+            return self.__getConcentration(self.currentIteration, location, env)
 
     cpdef float getConcentration(self, int iteration, Vector3 location):
         """Returns concentration (in ppm) at location in the specified iteration. If the iteration is not loaded, it gets loaded.
@@ -95,7 +96,8 @@ cdef class Simulation:
             Vector3 location
         """
         cdef int[:] env = self.Environment #memoryview
-        return self.__getConcentration(iteration, location, env)
+        with self._lock:
+            return self.__getConcentration(iteration, location, env)
 
     cpdef numpy.ndarray generateConcentrationMap2D(self, int iteration, float height, bint blockObstacles):
         """Returns 2D concentration map (in ppm) as a numpy.array of floats. 
@@ -127,7 +129,8 @@ cdef class Simulation:
             int iteration
             Vector3 location
         """
-        return self.getWind(self.currentIteration, location)
+        with self._lock:
+            return self.getWind(self.currentIteration, location)
 
     cpdef Vector3 getWind(self, int iteration, Vector3 location):
         """Returns wind vector (m/s) at location in the specified iteration. If the iteration is not loaded, it gets loaded.
@@ -173,13 +176,12 @@ cdef class Simulation:
         self.__readFile(iteration) #if it's the current iteration it doesn't do anything
         cdef float total = 0.0
         cdef Filament fil
-        with self._lock:
-            for ind, filament in self.filaments.items() :
-                fil = filament
-                if (<Vector3>(fil.position-location)).magnitude() > fil.stdDev/100 * 5:
-                    continue
-                if self.__checkPath(location, fil.position, env) :
-                    total += self.__getConcentrationFromFilament(location, fil)
+        for ind, filament in self.filaments.items() :
+            fil = filament
+            if (<Vector3>(fil.position-location)).magnitude() > fil.stdDev/100 * 5:
+                continue
+            if self.__checkPath(location, fil.position, env) :
+                total += self.__getConcentrationFromFilament(location, fil)
         return total
 
     cdef float __getConcentrationFromFilament(self, Vector3 location, Filament filament) :
