@@ -8,7 +8,7 @@ cpdef numpy.ndarray toColorImage(numpy.ndarray[object, ndim=2] input) :
     Takes a np.ndarray of Vector3 and turns them into 3-elements ndarrays
     Meant for generating color images from wind maps
     """
-    cdef numpy.ndarray[numpy.float_t, ndim=3] newarray = numpy.empty((input.shape[0], input.shape[1], 3), float)
+    cdef numpy.ndarray[numpy.float64_t, ndim=3] newarray = numpy.empty((input.shape[0], input.shape[1], 3), float)
     for i in range(input.shape[0]):
         for j in range(input.shape[1]):
             newarray[i,j,:] = Vector3.toNdArray(input[i,j])
@@ -33,7 +33,7 @@ def __isBlocked(value):
 
 cpdef numpy.ndarray makeSobelKernelX(int size):
     cdef int halfsize = size//2
-    cdef numpy.ndarray[numpy.float_t, ndim=2] newarray = numpy.full((size, size), 0, numpy.float)
+    cdef numpy.ndarray[numpy.float64_t, ndim=2] newarray = numpy.full((size, size), 0, numpy.float)
     for i in range(-halfsize, halfsize+1):
         for j in range(-halfsize, halfsize+1):
             newarray[halfsize+i, halfsize+j] = 0 if j==0 else j / (i*i + j*j)
