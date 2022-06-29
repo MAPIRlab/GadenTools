@@ -9,7 +9,8 @@ import math
 from Utils cimport Vector3
 import time
 cimport cython
-
+import threading
+import os.path
 
 cdef class Filament:
     cdef public Vector3 position
@@ -38,7 +39,7 @@ cdef class Simulation:
     cdef int gas_type
     cdef float total_moles_in_filament
     cdef float num_moles_all_gases_in_cm3
-
+    cdef object _lock
 
     def __init__(self, simulationFolder : str, occupancyFile : str):
         """
@@ -52,6 +53,26 @@ cdef class Simulation:
         self.currentWind=-1
         self.__readFile(0)
         self.__loadOccupancyFile()
+        self._lock = threading.Lock()
+
+    def getCurrentIteration(self) ->int:
+        '''it's just a getter'''
+        return self.currentIteration
+
+    def playSimulation(self, initialIteration:int, timePerIteration:float):
+        """
+        Continuously loads new iterations at the specified rate.
+        While using this you should only access the values through getCurrentConcentration and getCurrentWind.
+        """
+        x = threading.Thread(target=self.__play, args=(initialIteration, timePerIteration))
+        x.start()
+    
+    def __play(self, initialIteration:int, timePerIteration:float):
+        iteration = initialIteration
+        while os.path.isfile(self.simulationFolder+"/iteration_"+str(iteration)) :
+            self.__readFile(iteration)
+            iteration += 1
+            time.sleep(timePerIteration)
 
     cpdef float getCurrentConcentration(self, Vector3 location):
         """Returns concentration (in ppm) at location in the most recently loaded iteration.
@@ -82,16 +103,26 @@ cdef class Simulation:
 
         cdef int[:] env = self.Environment #memoryview
         cdef Vector3 location
-        for i in range(concentration_map.shape[0]) :
-            for j in range(concentration_map.shape[1]) : 
-                    if self.Environment[self.__indexFrom3D(i,j,k)]:
-                        location = Vector3(i + 0.5, j + 0.5, k + 0.5) * self.cell_size + self.env_min 
-                        concentration_map[i,j] = self.__getConcentration(iteration, location, env)
-                    else:
-                        concentration_map[i,j] = -1
+
+        with self._lock:
+            for i in range(concentration_map.shape[0]) :
+                for j in range(concentration_map.shape[1]) : 
+                        if self.Environment[self.__indexFrom3D(i,j,k)]:
+                            location = Vector3(i + 0.5, j + 0.5, k + 0.5) * self.cell_size + self.env_min 
+                            concentration_map[i,j] = self.__getConcentration(iteration, location, env)
+                        else:
+                            concentration_map[i,j] = -1
         return concentration_map
 
     
+    cpdef Vector3 getCurrentWind(self, Vector3 location):
+        """Returns wind vector (m/s) at location in the specified iteration. If the iteration is not loaded, it gets loaded.
+        Args:
+            int iteration
+            Vector3 location
+        """
+        return self.getWind(self.currentIteration, location)
+
     cpdef Vector3 getWind(self, int iteration, Vector3 location):
         """Returns wind vector (m/s) at location in the specified iteration. If the iteration is not loaded, it gets loaded.
         Args:
@@ -100,7 +131,8 @@ cdef class Simulation:
         """
         cdef Vector3 indices = (location-self.env_min) / self.cell_size
         cdef index = self.__indexFrom3D(indices.x, indices.y, indices.z)
-        return Vector3(self.U[index], self.V[index], self.W[index])
+        with self._lock:
+            return Vector3(self.U[index], self.V[index], self.W[index])
     
     cpdef numpy.ndarray generateWindMap2D(self, int iteration, float height, bint blockObstacles):
         """
@@ -116,16 +148,17 @@ cdef class Simulation:
 
         cdef Vector3 location
         cdef int index
-        for i in range(wind_map.shape[0]) :
-            for j in range(wind_map.shape[1]) : 
-                index = self.__indexFrom3D(i,j,k)
-                if self.Environment[index]:
-                    wind_map[i,j] = Vector3(self.U[index], self.V[index], self.W[index])
-                else:
-                    if blockObstacles:
-                        wind_map[i,j] = -1
+        with self._lock:
+            for i in range(wind_map.shape[0]) :
+                for j in range(wind_map.shape[1]) : 
+                    index = self.__indexFrom3D(i,j,k)
+                    if self.Environment[index]:
+                        wind_map[i,j] = Vector3(self.U[index], self.V[index], self.W[index])
                     else:
-                        wind_map[i,j] = Vector3(0,0,0)
+                        if blockObstacles:
+                            wind_map[i,j] = -1
+                        else:
+                            wind_map[i,j] = Vector3(0,0,0)
         return wind_map
 
 
@@ -134,12 +167,13 @@ cdef class Simulation:
         self.__readFile(iteration) #if it's the current iteration it doesn't do anything
         cdef float total = 0.0
         cdef Filament fil
-        for ind, filament in self.filaments.items() :
-            fil = filament
-            if (<Vector3>(fil.position-location)).magnitude() > fil.stdDev/100 * 5:
-                continue
-            if self.__checkPath(location, fil.position, env) :
-                total += self.__getConcentrationFromFilament(location, fil)
+        with self._lock:
+            for ind, filament in self.filaments.items() :
+                fil = filament
+                if (<Vector3>(fil.position-location)).magnitude() > fil.stdDev/100 * 5:
+                    continue
+                if self.__checkPath(location, fil.position, env) :
+                    total += self.__getConcentrationFromFilament(location, fil)
         return total
 
     cdef float __getConcentrationFromFilament(self, Vector3 location, Filament filament) :
