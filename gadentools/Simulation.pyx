@@ -58,25 +58,33 @@ cdef class Simulation:
         self.playing = False
 
     def getCurrentIteration(self) ->int:
-        '''it's just a getter'''
+        '''Returns the index of the currently loaded iteration'''
         return self.currentIteration
 
     def playSimulation(self, initialIteration:int, timePerIteration:float):
         """
         Continuously loads new iterations at the specified rate.
         While using this you should only access the values through getCurrentConcentration and getCurrentWind.
+        To stop the simulation use stopPlaying().
+        Args:
+            int initialIteration
+            float timePerIteration (seconds)
         """
         self.playing = True
         x = threading.Thread(target=self.__play, args=(initialIteration, timePerIteration))
         x.start()
     
     def stopPlaying(self):
+        """
+        If you called playSimulation(), this stops it. That's it. 
+        """
         self.playing = False
     
     def __play(self, initialIteration:int, timePerIteration:float):
         iteration = initialIteration
         while os.path.isfile(self.simulationFolder+"/iteration_"+str(iteration)) and self.playing :
-            self.__readFile(iteration)
+            with self._lock:
+                self.__readFile(iteration)
             iteration += 1
             time.sleep(timePerIteration)
 

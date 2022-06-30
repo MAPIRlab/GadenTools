@@ -16,13 +16,16 @@ cpdef numpy.ndarray toColorImage(numpy.ndarray[object, ndim=2] input) :
 
 
 def block(original, image):
-  for i in range(original.shape[0]):
-    for j in range(original.shape[1]):
-      if __isBlocked(original[i,j]) :
-        if len(image.shape)==3:
-          image[i,j,:] = 0
-        else:
-          image[i,j] = 0
+    """
+    Takes an image and draws the obstacles on it in black. "original" must be a concentration or wind map that was generated with the "blockObstacles" option.
+    """
+    for i in range(original.shape[0]):
+        for j in range(original.shape[1]):
+            if __isBlocked(original[i,j]) :
+                if len(image.shape)==3:
+                    image[i,j,:] = 0
+                else:
+                    image[i,j] = 0
 
 def __isBlocked(value):
     '''Returns True if value corresponds to a cell that was marked as blocked by generateConcentrationMap or generateWindMap.'''
