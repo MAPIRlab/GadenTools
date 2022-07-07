@@ -103,6 +103,12 @@ cdef class Vector3:
     
     cpdef float dot(self, Vector3 other):
         return self.x*other.x+self.y*other.y+self.z*other.z
+    
+    cpdef Vector3 cross(self, Vector3 other):
+        return Vector3.__new__(Vector3, \
+        self.y * other.z - self.z*other.y,\
+        self.z*other.x - self.x*other.z,\
+        self.x*other.y - self.y*other.x)
 
     cpdef Vector3 projectOnVector(self, Vector3 other):
         return self.dot(other) * other.normalized()
