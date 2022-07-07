@@ -36,7 +36,7 @@ cdef class Simulation:
     cdef int number_of_cells_x
     cdef int number_of_cells_y
     cdef int number_of_cells_z
-    cdef float cell_size
+    cdef public float cell_size
     cdef int gas_type
     cdef float total_moles_in_filament
     cdef float num_moles_all_gases_in_cm3
@@ -321,4 +321,17 @@ cdef class Simulation:
     cpdef int __indexFrom3D(self, float x, float y, float z) :
             return (<int>z) * self.number_of_cells_x * self.number_of_cells_y + (<int>y) * self.number_of_cells_x + (<int>x)
 
+    cpdef bint checkPositionForObstacles(self, Vector3 position):
+        """
+        True if position is free, false if there is an obstacle.
+        Args:
+            Vector3 position (m)
+        """
+        cdef Vector3 indices = (position-self.env_min) / self.cell_size
+        if indices.x<0 or indices.x>=self.number_of_cells_x \
+            or indices.y<0 or indices.y>=self.number_of_cells_y \
+            or indices.z<0 or indices.z>=self.number_of_cells_z:
+            return False
+        else:
+            return self.Environment[self.__indexFrom3D(indices.x, indices.y, indices.z)]
 
