@@ -123,7 +123,11 @@ cdef class Vector3:
         return sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
 
     cpdef Vector3 normalized(Vector3 self) :
-        return self / sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
+        cdef float m =sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
+        if m == 0:
+            return Vector3.__new__(Vector3, 0,0,0)
+        else:
+            return self / m
     
     cpdef Vector3 copy(Vector3 self)  :
         return Vector3.__new__(Vector3, self.x, self.y, self.z)
