@@ -11,3 +11,4 @@ cdef class Vector3:
     cpdef float magnitude(Vector3 self)
     cpdef Vector3 normalized(Vector3 self)     
     cpdef Vector3 copy(Vector3 self)      
+    cpdef Vector3 roundTo(Vector3 self, float p)
