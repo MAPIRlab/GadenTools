@@ -109,3 +109,12 @@ cdef class Vector3:
 
     cpdef Vector3 projectOnPlane(self, Vector3 planeNormal):
         return self-self.projectOnVector(planeNormal)
+
+    cpdef float magnitude(Vector3 self):
+        return sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
+
+    cpdef Vector3 normalized(Vector3 self) :
+        return self / sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
+    
+    cpdef Vector3 copy(Vector3 self)  :
+        return Vector3.__new__(Vector3, self.x, self.y, self.z)
