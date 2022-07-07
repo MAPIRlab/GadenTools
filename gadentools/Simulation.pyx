@@ -32,6 +32,7 @@ cdef class Simulation:
     cdef public numpy.ndarray Environment
     cdef public Vector3 env_min
     cdef public Vector3 env_max
+    cdef public Vector3 source_position
     cdef int number_of_cells_x
     cdef int number_of_cells_y
     cdef int number_of_cells_z
@@ -132,7 +133,7 @@ cdef class Simulation:
 
     
     cpdef Vector3 getCurrentWind(self, Vector3 location):
-        """Returns wind vector (m/s) at location in the specified iteration. If the iteration is not loaded, it gets loaded.
+        """Returns wind vector (m/s) at location in the current iteration.
         Args:
             int iteration
             Vector3 location
@@ -229,7 +230,10 @@ cdef class Simulation:
         self.cell_size = struct.unpack_from("=d", data, index)[0]
         index += struct.calcsize("=d")
         
-        index += 5 * struct.calcsize("=d") #discard these bytes
+        index += 2 * struct.calcsize("=d") #discard these bytes (repeated cell_size)
+
+        self.source_position = Vector3.fromTuple( struct.unpack_from("=ddd", data, index) )
+        index += struct.calcsize("=ddd")
 
         self.gas_type = struct.unpack_from("=i", data, index)[0]
         index += struct.calcsize("=i")
