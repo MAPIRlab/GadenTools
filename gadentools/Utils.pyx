@@ -87,8 +87,11 @@ cdef class Vector3:
         return Vector3.__new__(Vector3, self.x - other.x, self.y - other.y, self.z - other.z)
 
     @cython.returns(Vector3)
-    def __mul__(Vector3 self, float scalar) :
-        return Vector3.__new__(Vector3, self.x * scalar, self.y * scalar, self.z * scalar)
+    def __mul__(first, second) :
+        if isinstance(first, Vector3):
+            return Vector3.__new__(Vector3, first.x * second, first.y * second, first.z * second)
+        else:
+            return Vector3.__new__(Vector3, second.x * first, second.y * first, second.z * first)
     
     @cython.returns(Vector3)
     def __truediv__(Vector3 self, float scalar) :
@@ -111,7 +114,7 @@ cdef class Vector3:
         self.x*other.y - self.y*other.x)
 
     cpdef Vector3 projectOnVector(self, Vector3 other):
-        return self.dot(other) * other.normalized()
+        return other.normalized() * self.dot(other)
 
     cpdef Vector3 projectOnPlane(self, Vector3 planeNormal):
         return self-self.projectOnVector(planeNormal)
