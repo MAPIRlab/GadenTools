@@ -32,7 +32,7 @@ cdef class Simulation:
     cdef public numpy.ndarray Environment
     cdef public Vector3 env_min
     cdef public Vector3 env_max
-    cdef public Vector3 source_position
+    cdef readonly Vector3 source_position
     cdef int number_of_cells_x
     cdef int number_of_cells_y
     cdef int number_of_cells_z
