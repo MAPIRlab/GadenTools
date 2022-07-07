@@ -138,8 +138,7 @@ cdef class Simulation:
             int iteration
             Vector3 location
         """
-        with self._lock:
-            return self.getWind(self.currentIteration, location)
+        return self.getWind(self.currentIteration, location)
 
     cpdef Vector3 getWind(self, int iteration, Vector3 location):
         """Returns wind vector (m/s) at location in the specified iteration. If the iteration is not loaded, it gets loaded.
