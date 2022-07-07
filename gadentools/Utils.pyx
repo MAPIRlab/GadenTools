@@ -119,5 +119,5 @@ cdef class Vector3:
     cpdef Vector3 copy(Vector3 self)  :
         return Vector3.__new__(Vector3, self.x, self.y, self.z)
     
-    cpdef Vector3 roundTo(Vector3 self, float p) :
+    cpdef Vector3 roundTo(Vector3 self, int p) :
         return Vector3.__new__(Vector3, round(self.x,p), round(self.y,p), round(self.z,p) )
