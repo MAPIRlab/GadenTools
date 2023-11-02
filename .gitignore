@@ -1,6 +1,7 @@
 venv
 gadentools/__pycache__
 build
+test_data
 test.py
 *.c
 *.so
