@@ -1,6 +1,7 @@
 venv
 gadentools/__pycache__
 build
+.vscode
 test_data
 test.py
 *.c

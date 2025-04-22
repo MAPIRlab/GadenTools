@@ -3,7 +3,9 @@ from Cython.Build import cythonize
 import numpy
 
 extensions = Extension("*", ["gadentools/*.pyx"],
-    include_dirs=[numpy.get_include()]
+    include_dirs=[
+        numpy.get_include()
+        ]
 )
 
 setup(

@@ -210,86 +210,149 @@ cdef class Simulation:
         self.currentIteration = iteration
         self.filaments = {}
         
-        cdef object data
+        cdef bytes data
         with open(self.simulationFolder+"/iteration_"+str(iteration), "rb") as file:
             data = zlib.decompress(file.read())
         
         cdef int version_major = struct.unpack_from("=i", data, 0)[0]
         cdef int index = 0
-        cdef tuple num_cells
 
         if version_major == 1:
-            index = struct.calcsize("=i")
-            self.env_min = Vector3.fromTuple( struct.unpack_from("=ddd", data, index) )
-            index += struct.calcsize("=ddd")
-            self.env_max = Vector3.fromTuple( struct.unpack_from("=ddd", data, index) )
-            index += struct.calcsize("=ddd")
-
-            num_cells = struct.unpack_from("=iii", data, index)
-            self.number_of_cells_x = num_cells[0]
-            self.number_of_cells_y = num_cells[1]
-            self.number_of_cells_z = num_cells[2]
-            index += struct.calcsize("=iii")
-            
-            self.cell_size = struct.unpack_from("=d", data, index)[0]
-            index += struct.calcsize("=d")
-            
-            index += 2 * struct.calcsize("=d") #discard these bytes (repeated cell_size)
-
-            self.source_position = Vector3.fromTuple( struct.unpack_from("=ddd", data, index) )
-            index += struct.calcsize("=ddd")
-
-            self.gas_type = struct.unpack_from("=i", data, index)[0]
-            index += struct.calcsize("=i")
-
-            self.total_moles_in_filament = struct.unpack_from("=d", data, index)[0]
-            index += struct.calcsize("=d")
-            self.num_moles_all_gases_in_cm3 = struct.unpack_from("=d", data, index)[0]
-            index += struct.calcsize("=d")
+            self.__parse_v1(data, index)
 
         else: #version 2
-            index = struct.calcsize("=ii") #two ints for the version code
+            version_major, version_minor = struct.unpack_from("=ii", data, index)
+            index += struct.calcsize("=ii") 
 
-            num_cells = struct.unpack_from("=iii", data, index)
-            self.number_of_cells_x = num_cells[0]
-            self.number_of_cells_y = num_cells[1]
-            self.number_of_cells_z = num_cells[2]
-            index += struct.calcsize("=iii")
+            if version_minor < 6:
+                self.__parse_pre_v2_6(data, index)
+            else:
+                self.__parse_current(data, index)
 
 
-            self.env_min = Vector3.fromTuple( struct.unpack_from("=fff", data, index) )
-            index += struct.calcsize("=fff")
-            self.env_max = Vector3.fromTuple( struct.unpack_from("=fff", data, index) )
-            index += struct.calcsize("=fff")
+    cdef __parse_v1(self, bytes data, int index):
+        cdef tuple num_cells
+        index = struct.calcsize("=i")
+        self.env_min = Vector3.fromTuple( struct.unpack_from("=ddd", data, index) )
+        index += struct.calcsize("=ddd")
+        self.env_max = Vector3.fromTuple( struct.unpack_from("=ddd", data, index) )
+        index += struct.calcsize("=ddd")
 
-            self.cell_size = struct.unpack_from("=f", data, index)[0]
-            index += struct.calcsize("=f")
+        num_cells = struct.unpack_from("=iii", data, index)
+        self.number_of_cells_x = num_cells[0]
+        self.number_of_cells_y = num_cells[1]
+        self.number_of_cells_z = num_cells[2]
+        index += struct.calcsize("=iii")
+        
+        self.cell_size = struct.unpack_from("=d", data, index)[0]
+        index += struct.calcsize("=d")
+        
+        index += 2 * struct.calcsize("=d") #discard these bytes (repeated cell_size)
 
-            self.source_position = Vector3.fromTuple( struct.unpack_from("=fff", data, index) )
-            index += struct.calcsize("=fff")
-            
-            self.gas_type = struct.unpack_from("=i", data, index)[0]
-            index += struct.calcsize("=i")
+        self.source_position = Vector3.fromTuple( struct.unpack_from("=ddd", data, index) )
+        index += struct.calcsize("=ddd")
 
-            self.total_moles_in_filament = struct.unpack_from("=d", data, index)[0]
-            index += struct.calcsize("=d")
-            self.num_moles_all_gases_in_cm3 = struct.unpack_from("=d", data, index)[0]
-            index += struct.calcsize("=d")
+        self.gas_type = struct.unpack_from("=i", data, index)[0]
+        index += struct.calcsize("=i")
 
+        self.total_moles_in_filament = struct.unpack_from("=d", data, index)[0]
+        index += struct.calcsize("=d")
+        self.num_moles_all_gases_in_cm3 = struct.unpack_from("=d", data, index)[0]
+        index += struct.calcsize("=d")
 
         cdef int wind_iteration = struct.unpack_from("=i", data, index)[0]
         index += struct.calcsize("=i")
         
-        cdef filament_ind
+        cdef int filament_ind
         while data.__sizeof__()>index+struct.calcsize("=idddd"):
             filament_ind = struct.unpack_from("=i", data, index)[0]
             index += struct.calcsize("=i")
             self.filaments[int(filament_ind)] = Filament(struct.unpack_from("=dddd", data, index))
             index += struct.calcsize("=dddd")
             
-        self.__loadWind(wind_iteration)
+        self.__loadWind_doubles(wind_iteration)
 
-    cdef __loadWind(self, int wind_iteration):
+    cdef __parse_pre_v2_6(self, bytes data, int index):
+        cdef tuple num_cells
+        num_cells = struct.unpack_from("=iii", data, index)
+        self.number_of_cells_x = num_cells[0]
+        self.number_of_cells_y = num_cells[1]
+        self.number_of_cells_z = num_cells[2]
+        index += struct.calcsize("=iii")
+
+
+        self.env_min = Vector3.fromTuple( struct.unpack_from("=fff", data, index) )
+        index += struct.calcsize("=fff")
+        self.env_max = Vector3.fromTuple( struct.unpack_from("=fff", data, index) )
+        index += struct.calcsize("=fff")
+
+        self.cell_size = struct.unpack_from("=f", data, index)[0]
+        index += struct.calcsize("=f")
+
+        self.source_position = Vector3.fromTuple( struct.unpack_from("=fff", data, index) )
+        index += struct.calcsize("=fff")
+        
+        self.gas_type = struct.unpack_from("=i", data, index)[0]
+        index += struct.calcsize("=i")
+
+        self.total_moles_in_filament = struct.unpack_from("=d", data, index)[0]
+        index += struct.calcsize("=d")
+        self.num_moles_all_gases_in_cm3 = struct.unpack_from("=d", data, index)[0]
+        index += struct.calcsize("=d")
+
+        cdef int wind_iteration = struct.unpack_from("=i", data, index)[0]
+        index += struct.calcsize("=i")
+
+        cdef int filament_ind
+        while data.__sizeof__()>index+struct.calcsize("=idddd"):
+            filament_ind = struct.unpack_from("=i", data, index)[0]
+            index += struct.calcsize("=i")
+            self.filaments[int(filament_ind)] = Filament(struct.unpack_from("=dddd", data, index))
+            index += struct.calcsize("=dddd")
+            
+        self.__loadWind_doubles(wind_iteration)
+
+    cdef __parse_current(self, bytes data, int index):
+        cdef tuple num_cells
+        num_cells = struct.unpack_from("=iii", data, index)
+        self.number_of_cells_x = num_cells[0]
+        self.number_of_cells_y = num_cells[1]
+        self.number_of_cells_z = num_cells[2]
+        index += struct.calcsize("=iii")
+
+
+        self.env_min = Vector3.fromTuple( struct.unpack_from("=fff", data, index) )
+        index += struct.calcsize("=fff")
+        self.env_max = Vector3.fromTuple( struct.unpack_from("=fff", data, index) )
+        index += struct.calcsize("=fff")
+
+        self.cell_size = struct.unpack_from("=f", data, index)[0]
+        index += struct.calcsize("=f")
+
+        self.source_position = Vector3.fromTuple( struct.unpack_from("=fff", data, index) )
+        index += struct.calcsize("=fff")
+        
+        self.gas_type = struct.unpack_from("=i", data, index)[0]
+        index += struct.calcsize("=i")
+
+        self.total_moles_in_filament = struct.unpack_from("=f", data, index)[0]
+        index += struct.calcsize("=f")
+        self.num_moles_all_gases_in_cm3 = struct.unpack_from("=f", data, index)[0]
+        index += struct.calcsize("=f")
+
+        cdef int wind_iteration = struct.unpack_from("=i", data, index)[0]
+        index += struct.calcsize("=i")
+
+        cdef int filament_ind
+        while data.__sizeof__()>index+struct.calcsize("=idddd"):
+            filament_ind = struct.unpack_from("=i", data, index)[0]
+            index += struct.calcsize("=i")
+            self.filaments[int(filament_ind)] = Filament(struct.unpack_from("=ffff", data, index))
+            index += struct.calcsize("=ffff")
+            
+        self.__loadWind_floats(wind_iteration)
+
+    cdef __loadWind_doubles(self, int wind_iteration):
         cdef object data
         cdef int index = 0
         cdef object format
@@ -306,6 +369,34 @@ cdef class Simulation:
             index += struct.calcsize(format)
 
             self.W = numpy.array( struct.unpack_from(format, data, index) )
+
+    cdef __loadWind_floats(self, int wind_iteration):
+        cdef object data
+        cdef int index = 0
+        cdef object format
+        cdef int num_cells
+        if wind_iteration is not self.currentWind:
+            self.currentWind = wind_iteration
+            with open(self.simulationFolder+"/wind/wind_iteration_"+str(wind_iteration), "rb") as file:
+                data = file.read() 
+
+            # post 2.6 files have a single list of 3D vectors, rather than having three consecutive lists for each component.
+            # since cython doesnt like arrays of classes, we will keep the three separate lists here
+            # but, of course, that means parsing the file is a little more awkward, we cant just do it in one big read
+            num_cells = self.number_of_cells_x * self.number_of_cells_y *self.number_of_cells_z
+            self.U = numpy.zeros(num_cells)
+            self.V = numpy.zeros(num_cells)
+            self.W = numpy.zeros(num_cells)
+            for i in range(num_cells):
+                self.U[i] =struct.unpack_from("=f", data, index)[0]
+                index += struct.calcsize("=f")
+
+                self.V[i] =struct.unpack_from("=f", data, index)[0]
+                index += struct.calcsize("=f")
+
+                self.W[i] =struct.unpack_from("=f", data, index)[0]
+                index += struct.calcsize("=f")
+
 
     cdef __loadOccupancyFile(self):
         cdef object lines
