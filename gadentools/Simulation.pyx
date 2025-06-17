@@ -220,14 +220,19 @@ cdef class Simulation:
         if version_major == 1:
             self.__parse_v1(data, index)
 
-        else: #version 2
+        elif version_major == 2:
             version_major, version_minor = struct.unpack_from("=ii", data, index)
             index += struct.calcsize("=ii") 
 
             if version_minor < 6:
-                self.__parse_pre_v2_6(data, index)
+                self.__parse_v2_0(data, index)
             else:
-                self.__parse_current(data, index)
+                self.__parse_v2_6(data, index)
+        else:
+            version_major, version_minor = struct.unpack_from("=ii", data, index)
+            index += struct.calcsize("=ii") 
+            self.__parse_v2_6(data, index)
+
 
 
     cdef __parse_v1(self, bytes data, int index):
@@ -272,7 +277,7 @@ cdef class Simulation:
             
         self.__loadWind_doubles(wind_iteration)
 
-    cdef __parse_pre_v2_6(self, bytes data, int index):
+    cdef __parse_v2_0(self, bytes data, int index):
         cdef tuple num_cells
         num_cells = struct.unpack_from("=iii", data, index)
         self.number_of_cells_x = num_cells[0]
@@ -312,7 +317,7 @@ cdef class Simulation:
             
         self.__loadWind_doubles(wind_iteration)
 
-    cdef __parse_current(self, bytes data, int index):
+    cdef __parse_v2_6(self, bytes data, int index):
         cdef tuple num_cells
         num_cells = struct.unpack_from("=iii", data, index)
         self.number_of_cells_x = num_cells[0]
@@ -344,7 +349,7 @@ cdef class Simulation:
         index += struct.calcsize("=i")
 
         cdef int filament_ind
-        while data.__sizeof__()>index+struct.calcsize("=idddd"):
+        while data.__sizeof__()>index+struct.calcsize("=iffff"):
             filament_ind = struct.unpack_from("=i", data, index)[0]
             index += struct.calcsize("=i")
             self.filaments[int(filament_ind)] = Filament(struct.unpack_from("=ffff", data, index))

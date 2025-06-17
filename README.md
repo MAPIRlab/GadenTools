@@ -25,3 +25,16 @@ GadenTools is shipped as an easy-to-use Python module, and accompanied by an ext
 # Dataset
 To illustrate different use cases of GadenTools, we employ a publicly availabe [Dataset](https://mapir.isa.uma.es/mapirwebsite/?p=1708) of simulated airflows and gas dispersion generated with GADEN, in detailed 3D models of real houses (made with robotics in mind).
 ![image](https://mapir.isa.uma.es/mapirwebsite/wp-content/uploads/2022/04/vectorglyphs.png)
+
+# Building
+GadenTools requires [Cython](https://cython.readthedocs.io/en/latest/index.html). You can install GadenTools directly from the git repo with:
+
+```
+pip install git+https://github.com/MAPIRlab/GadenTools
+```
+
+Alternatively, you can build a locally downloaded copy of the repo with:
+
+```
+python setup.py build_ext --inplace
+```
